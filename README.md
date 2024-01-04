@@ -5,15 +5,15 @@ This tool is designed to perform code reviews on IFS PL/SQL files. It helps iden
 
 ## Features
 
-- Procedure Name Validation: Validates if the procedure names adhere to IFS naming guidelines.
+- Procedure Name/Function Name Validation: Validates if the names adhere to IFS naming guidelines.
 
-- Parameter Naming Checks: Verifies the correctness of parameter names within procedures.
+- Parameter Naming Checks: Verifies the correctness of parameter names within procedures/functions.
 
 - Parameter Direction Validation: Ensures proper declaration and ordering of parameter directions (IN, OUT, IN OUT).
 
 - Parameter Underscore Convention: Checks if parameters end with an underscore as per conventions.
 
-- Cursor and Variable Declaration Order: Verifies the order of cursor and variable declarations within procedures.
+- Cursor and Variable Declaration Order: Verifies the order of cursor and variable declarations within procedures/functions.
 
 - SELECT Statement Validation:
   - Detects the use of SELECT *, prompting users to specify required columns.

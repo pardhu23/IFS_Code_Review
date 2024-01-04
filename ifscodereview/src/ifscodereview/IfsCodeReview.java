@@ -104,7 +104,17 @@ public class IfsCodeReview extends PlSqlParserBaseListener {
             commentGenerator.identifyIssue("Procedure name " + procedureName + " is not follow IFS naming guidelines", filePath, lineNumber, commitSHA);
          }
       }
-
+      
+      @Override
+      public void enterFunction_name(PlSqlParser.Function_nameContext ctx){
+         Token identifier = ctx.getStart();
+         lineNumber = identifier.getLine();
+         String functionName = ctx.getText();
+         if (!isCustomPascalCase(functionName)) {
+            commentGenerator.identifyIssue("Function name " + functionName + " is not follow IFS naming guidelines", filePath, lineNumber, commitSHA);
+         }
+      }
+      
       private boolean isCustomPascalCase(String name) {
          if (name == null || name.isEmpty()) {
             return false;
@@ -283,7 +293,83 @@ public class IfsCodeReview extends PlSqlParserBaseListener {
          }
 
       }
+ 
+      @Override
+      public void enterFunction_body(PlSqlParser.Function_bodyContext ctx) { 
+         boolean inOutFound = false;
+         boolean inFound = false;
+         boolean inDefaultFound = false;
 
+         List<RuleInfo> paramStartPositions = new ArrayList<>();
+         List<RuleInfo> directionStartPositions = new ArrayList<>();
+         List<RuleInfo> typeStartPositions = new ArrayList<>();
+
+         String functionName = ctx.function_name().getText();
+         System.out.println("Function name: " + functionName);
+
+         // Track starting positions for parameters, directions, and data types
+         List<PlSqlParser.ParameterContext> parameters = ctx.parameter();
+
+         if (!parameters.isEmpty()) {
+            for (PlSqlParser.ParameterContext parameter : parameters) {
+               String paramName = parameter.parameter_name().getText();
+               Token identifier = parameter.getStart();
+               lineNumber = identifier.getLine();
+               paramStartPositions.add(new RuleInfo(lineNumber, identifier.getCharPositionInLine()));
+
+               List<PlSqlParser.Parameter_directionContext> directionContextList = parameter.parameter_direction();
+               if (!directionContextList.isEmpty()) {
+                  PlSqlParser.Parameter_directionContext directionContext = directionContextList.get(0);
+                  directionStartPositions.add(new RuleInfo(lineNumber, directionContext.getStart().getCharPositionInLine()));
+
+               } else {
+                  // Validation failed: Parameter direction is missing
+                  commentGenerator.identifyIssue(paramName + ": Parameter direction was not specified.", filePath, lineNumber, commitSHA);
+               }
+
+               PlSqlParser.Type_specContext typeSpec = parameter.type_spec();
+               typeStartPositions.add(new RuleInfo(lineNumber, typeSpec.getStart().getCharPositionInLine()));
+
+               if (!paramName.endsWith("_")) {
+                  // Validation failed: Underscore is missing at the end of the parameter
+                  commentGenerator.identifyIssue(paramName + ": Parameter does not end with an underscore", filePath, lineNumber, commitSHA);
+               }
+
+               if (!generatedProcedures.contains(functionName)) {
+                  String direction = parameter.parameter_direction(0) != null ? parameter.parameter_direction(0).getText() : "";
+                  String defaultVal = parameter.default_value_part() != null ? parameter.default_value_part().getText() : "";
+
+                  if (direction.equals("OUT")) {
+                     if (inOutFound || inFound || inDefaultFound) {
+                        // Validation failed: OUT parameter found after other types
+                        commentGenerator.identifyIssue(paramName + ": OUT parameter found after other types", filePath, lineNumber, commitSHA);
+                     }
+                  } else if (direction.contains("IN OUT")) {
+                     inOutFound = true;
+                     if (inFound || inDefaultFound) {
+                        // Validation failed: IN OUT parameter found after other types
+                        commentGenerator.identifyIssue(paramName + ": IN OUT parameter found after other types", filePath, lineNumber, commitSHA);
+                     }
+                  } else if (direction.contains("IN") && !paramName.equals("objid_")) {
+                     if (defaultVal.isEmpty()) {
+                        inFound = true;
+                        if (inDefaultFound) {
+                           // Validation failed: IN parameter found after IN with default
+                           commentGenerator.identifyIssue(paramName + ": IN parameter found after IN with default", filePath, lineNumber, commitSHA);
+                        }
+                     } else {
+                        inDefaultFound = true;
+                     }
+                  }
+               }
+            }
+
+            checkVerticalAlignment("Parameters", paramStartPositions);
+            checkVerticalAlignment("Parameters Directions", directionStartPositions);
+            checkVerticalAlignment("Parameters Data Types", typeStartPositions);
+         }
+}
+      
       private void checkVerticalAlignment(String category, List<RuleInfo> columnInfoList) {
          if (columnInfoList.isEmpty()) {
             // Handle the case when the list is empty
@@ -357,10 +443,8 @@ public class IfsCodeReview extends PlSqlParserBaseListener {
                String columnAlias = ctx.column_alias().identifier().getText();
                if (!columnAlias.equals(columnAlias.toLowerCase())) {
                   commentGenerator.identifyIssue(columnAlias + " : column alias should be in lowercase", filePath, lineNumber, commitSHA);
-
                }
             }
-
             columnLineNumbers.add(new RuleInfo(lineNumber, ctx.expression().getStart().getCharPositionInLine()));
          } else if (ctx.getText().endsWith(".*")) {
             commentGenerator.identifyIssue("SELECT * is not allowed, specificy the required columns.", filePath, lineNumber, commitSHA);
@@ -457,7 +541,7 @@ public class IfsCodeReview extends PlSqlParserBaseListener {
    public static void main(String[] args) {
       String owner = "";
       String repo = "";
-      int pullNumber = 0; // Replace with your PR number
+      int pullNumber = 0;
 
       if (args.length > 0) {
          commitSHA = args[0];
@@ -465,11 +549,7 @@ public class IfsCodeReview extends PlSqlParserBaseListener {
          owner = args[2];
          repo = args[3];
          pullNumber = Integer.parseInt(args[4]);
-      }
-	  
-	  //filePath = "C:\\Users\\pardh\\Documents\\Netbeans\\IfsCodeReview\\src\\ifscodereview\\CCrpObjectReservation.plsql"; // Replace with your file path
-     //commitSHA = "9836f5016c66bd8d765d7bd337c4cd8ae3c3c756";
-            
+      }    
 
       try {
          File file = new File(filePath);
@@ -502,11 +582,6 @@ public class IfsCodeReview extends PlSqlParserBaseListener {
             // Write comments to a JSON file
             commentGenerator.writeCommentsToFile("comments.json");
 
-            //commitSHA = "9836f5016c66bd8d765d7bd337c4cd8ae3c3c756";
-            //filePath = "workspace/Test.plsql";
-            //owner = "pardhu23";
-            //repo = "IFS";
-            //pullNumber = 2;
             String token = System.getenv("GH_TOKEN");
 
             String apiUrl = GITHUB_API_URL.replace("{owner}", owner)

@@ -641,7 +641,10 @@ create_package
     ;
 
 create_package_body
-    : package_obj_body* 
+    : CREATE (OR REPLACE)? (EDITIONABLE | NONEDITIONABLE)? PACKAGE BODY (schema_object_name '.')? package_name (
+        IS
+        | AS
+    ) package_obj_body* (BEGIN seq_of_statements)? END package_name?
     ;
 
 // Create Package Specific Clauses
@@ -706,7 +709,7 @@ alter_procedure
     ;
 
 function_body
-    : FUNCTION identifier ('(' parameter (',' parameter)* ')')? RETURN type_spec (
+    : FUNCTION function_name ('(' parameter (',' parameter)* ')')? RETURN type_spec (
         invoker_rights_clause
         | parallel_enable_clause
         | result_cache_clause
@@ -726,7 +729,7 @@ procedure_body
     ;
 
 create_procedure_body
-    : PROCEDURE procedure_name ('(' parameter (',' parameter)* ')')? invoker_rights_clause? (
+    : CREATE (OR REPLACE)? PROCEDURE procedure_name ('(' parameter (',' parameter)* ')')? invoker_rights_clause? (
         IS
         | AS
     ) (DECLARE? seq_of_declare_specs? body | call_spec | EXTERNAL) ';'
