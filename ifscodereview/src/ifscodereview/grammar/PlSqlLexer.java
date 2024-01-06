@@ -22671,7 +22671,6 @@ public class PlSqlLexer extends PlSqlLexerBase {
 			_decisionToDFA[i] = new DFA(_ATN.getDecisionState(i), i);
 		}
 	}
-   
    public static String[] getLiteralNames() {
       return _LITERAL_NAMES;
    }

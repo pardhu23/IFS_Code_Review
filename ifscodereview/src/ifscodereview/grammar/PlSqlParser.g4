@@ -641,10 +641,7 @@ create_package
     ;
 
 create_package_body
-    : CREATE (OR REPLACE)? (EDITIONABLE | NONEDITIONABLE)? PACKAGE BODY (schema_object_name '.')? package_name (
-        IS
-        | AS
-    ) package_obj_body* (BEGIN seq_of_statements)? END package_name?
+    : package_obj_body*
     ;
 
 // Create Package Specific Clauses
@@ -5402,7 +5399,7 @@ subtype_declaration
 // cursor_declaration incorportates curscursor_body and cursor_spec
 
 cursor_declaration
-    : CURSOR identifier ('(' parameter_spec (',' parameter_spec)* ')')? (RETURN type_spec)? (
+    : CURSOR cursor_name ('(' parameter_spec (',' parameter_spec)* ')')? (RETURN type_spec)? (
         IS select_statement
     )? ';'
     ;
